@@ -1,0 +1,32 @@
+[
+  {
+    "url": "https://techcrunch.com/",
+    "engine": "ollama",
+    "at": "2026-11-19T12:59:30",
+    "truncated": false,
+    "status": "ok",
+    "file": "01-ai-cyberattacks-are-outpacing-defenses-the-danger-zone.md",
+    "title": "AI Cyberattacks Are Outpacing Defenses: The Danger Zone",
+    "warnings": []
+  },
+  {
+    "url": "https://www.theverge.com/tech",
+    "engine": "ollama",
+    "at": "2026-11-19T13:01:07",
+    "truncated": false,
+    "status": "ok",
+    "file": "02-ai-bug-rush-is-tech-instability-looming-tech-voyager.md",
+    "title": "AI Bug Rush: Is Tech Instability Looming? | Tech Voyager",
+    "warnings": []
+  },
+  {
+    "url": "https://techcrunch.com/",
+    "engine": "colibri",
+    "at": "2026-11-19T13:01:58",
+    "truncated": false,
+    "status": "ok",
+    "file": "03-elon-musk-defends-nvidia-s-ceo-amid-scandal.md",
+    "title": "Elon Musk Defends Nvidia's CEO Amid Scandal",
+    "warnings": []
+  }
+]
