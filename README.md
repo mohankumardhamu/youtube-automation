@@ -52,3 +52,24 @@ If a URL fails at any step (bot-blocked page, too little text, API error, VEED t
   `python3 scripts/build_workflow.py && docker compose exec n8n n8n import:workflow --input=/workflows/tech-to-shorts.json`
   (this overwrites the imported copy; re-select the YouTube credential afterwards if needed). Alternatively, edit in the UI and stop using the script.
 - **CLI run:** `docker compose exec n8n n8n execute --id=TechToShorts0001` runs the manual path.
+
+## VEED via browser automation (`VIDEO_ENGINE=browser`)
+
+Instead of the fal.ai API, n8n can have a local service drive veed.io in Firefox using your own VEED account. YouTube upload stays on the official API.
+
+```
+n8n (Docker) ──HTTP──▶ browser-service (host, :8765) ──Playwright──▶ Firefox ──▶ veed.io
+                ◀── polls status, then downloads the MP4 from the service
+```
+
+- `VIDEO_ENGINE=browser` in `.env` turns on this path. `fal` (or unset) uses the API path.
+- The service uses Playwright's bundled Firefox with a **saved VEED login** (`browser-service/auth/veed.json`), not your everyday Firefox profile. Firefox locks the profile while it's open, and Playwright can't drive your installed Firefox. You log in once in the recorder window.
+- One video renders at a time. Jobs time out after `VEED_JOB_TIMEOUT_MIN` (default 28 minutes). On failure, a screenshot is saved to `browser-service/debug/<job>.png` and the URL is logged as skipped in n8n.
+- Requests are protected by `BROWSER_SERVICE_TOKEN`. The service listens on 0.0.0.0:8765 so the container can reach it.
+
+**One-time setup**
+1. `browser-service/record.sh`: a Firefox window opens with the Playwright recorder. Log in to VEED, then make one video exactly as you normally would. Paste a placeholder script where the script goes, then export and download it. Close the window.
+2. Ask Claude to adapt `browser-service/recordings/veed_recording.py` into `browser-service/veed_flow.py`. Until then, browser jobs fail with "VEED flow not recorded yet".
+3. `browser-service/run.sh` starts the service. Keep it running while the workflow runs, and keep your desktop session unlocked if `BROWSER_HEADLESS=false`.
+
+If the VEED session expires, run `record.sh` again just to log in.

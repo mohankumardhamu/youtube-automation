@@ -1,0 +1,6 @@
+.venv/
+auth/
+output/
+debug/
+recordings/
+__pycache__/

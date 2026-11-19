@@ -7,6 +7,7 @@ if [ ! -f .env ]; then
   cp .env.example .env
   key=$(openssl rand -hex 32)
   sed -i "s/^N8N_ENCRYPTION_KEY=.*/N8N_ENCRYPTION_KEY=${key}/" .env
+  sed -i "s/^BROWSER_SERVICE_TOKEN=.*/BROWSER_SERVICE_TOKEN=$(openssl rand -hex 24)/" .env
   echo "Created .env - add ANTHROPIC_API_KEY and FAL_KEY to it, then re-run: docker compose up -d"
 fi
 

@@ -221,44 +221,51 @@ return { json: { url, ok: !!(title && script), title, script, description, ytTag
 
 if_node("Script OK?", [2200, 100], "={{ $json.ok }}", ("boolean", "true"))
 
-http("VEED: Submit Video", [2420, 0], "POST", "https://queue.fal.run/veed/avatars/text-to-video",
+if_node("Use VEED Browser?", [2420, 100], "={{ $env.VIDEO_ENGINE || 'fal' }}", ("string", "equals"), "browser")
+
+http("VEED (Browser): Submit", [2640, 200], "POST", "={{ ($env.BROWSER_SERVICE_URL || 'http://host.docker.internal:8765') + '/veed/jobs' }}",
+     headers=[("X-Token", "={{ $env.BROWSER_SERVICE_TOKEN }}"), ("content-type", "application/json")],
+     body_expr="={{ JSON.stringify({ script: $json.script, title: $json.title }) }}",
+     onError="continueErrorOutput")
+
+http("VEED: Submit Video", [2640, -100], "POST", "https://queue.fal.run/veed/avatars/text-to-video",
      headers=[("Authorization", "=Key {{ $env.FAL_KEY }}"), ("content-type", "application/json")],
      body_expr="={{ JSON.stringify({ avatar_id: $env.VEED_AVATAR_ID || 'emily_vertical_primary', text: $json.script }) }}",
      onError="continueErrorOutput", retryOnFail=True, maxTries=2)
 
-code("Job Info", [2640, 0], r"""
+code("Job Info", [2860, 0], r"""
 const s = $('Script OK?').item.json;
 return { json: { ...s, request_id: $json.request_id, status_url: $json.status_url, response_url: $json.response_url, attempts: 0 } };
 """)
 
-node("Wait 30s", "n8n-nodes-base.wait", 1.1, [2860, 0], {"amount": 30}, webhookId=nid("wait-webhook"))
+node("Wait 30s", "n8n-nodes-base.wait", 1.1, [3080, 0], {"amount": 30}, webhookId=nid("wait-webhook"))
 
-http("VEED: Check Status", [3080, 0], "GET", "={{ $json.status_url }}",
-     headers=[("Authorization", "=Key {{ $env.FAL_KEY }}")], retryOnFail=True, maxTries=3)
+http("VEED: Check Status", [3300, 0], "GET", "={{ $json.status_url }}",
+     headers=[("Authorization", "={{ $json.status_url.includes('fal.run') ? 'Key ' + $env.FAL_KEY : '' }}")], retryOnFail=True, maxTries=3)
 
-code("Merge Status", [3300, 0], r"""
+code("Merge Status", [3520, 0], r"""
 const job = $('Wait 30s').item.json;
 return { json: { ...job, fal_status: $json.status, attempts: (job.attempts || 0) + 1 } };
 """)
 
-if_node("Video Ready?", [3520, 0], "={{ $json.fal_status }}", ("string", "equals"), "COMPLETED")
-if_node("Timed Out?", [3740, 160], "={{ $json.attempts }}", ("number", "gte"), 40)  # 40 x 30s = 20 min
+if_node("Video Ready?", [3740, 0], "={{ $json.fal_status }}", ("string", "equals"), "COMPLETED")
+if_node("Timed Out?", [3960, 160], "={{ $json.attempts }}", ("number", "gte"), 60)  # 60 x 30s = 30 min
 
-http("VEED: Get Result", [3740, -160], "GET", "={{ $json.response_url }}",
-     headers=[("Authorization", "=Key {{ $env.FAL_KEY }}")], onError="continueErrorOutput")
+http("VEED: Get Result", [3960, -160], "GET", "={{ $json.response_url }}",
+     headers=[("Authorization", "={{ $json.response_url.includes('fal.run') ? 'Key ' + $env.FAL_KEY : '' }}")], onError="continueErrorOutput")
 
-code("Merge Result", [3960, -160], r"""
+code("Merge Result", [4180, -160], r"""
 const job = $('Video Ready?').item.json;
 const videoUrl = $json.video && $json.video.url;
 if (!videoUrl) throw new Error('VEED finished without a video URL: ' + JSON.stringify($json).slice(0, 500));
 return { json: { ...job, video_url: videoUrl } };
 """, onError="continueErrorOutput")
 
-http("Download Video", [4180, -160], "GET", "={{ $json.video_url }}",
+http("Download Video", [4400, -160], "GET", "={{ $json.video_url }}",
      response={"responseFormat": "file", "outputPropertyName": "data"}, timeout=300000,
      onError="continueErrorOutput", retryOnFail=True, maxTries=2)
 
-node("Upload to YouTube", "n8n-nodes-base.youTube", 1, [4400, -160], {
+node("Upload to YouTube", "n8n-nodes-base.youTube", 1, [4620, -160], {
     "resource": "video",
     "operation": "upload",
     "title": "={{ $('Merge Result').item.json.title }}",
@@ -274,13 +281,13 @@ node("Upload to YouTube", "n8n-nodes-base.youTube", 1, [4400, -160], {
     },
 }, onError="continueErrorOutput")
 
-code("Log Uploaded", [4620, -260], r"""
+code("Log Uploaded", [4840, -260], r"""
 const job = $('Merge Result').item.json;
 const id = $json.uploadId || $json.id;
 return { json: { url: job.url, status: 'uploaded', title: job.title, youtube: id ? `https://youtube.com/shorts/${id}` : null, video_url: job.video_url } };
 """)
 
-code("Log Skipped", [4620, 300], r"""
+code("Log Skipped", [4840, 300], r"""
 const reason = $json.reason || $json.error?.message || ($json.attempts ? 'VEED timed out' : 'page had too little text');
 return { json: { status: 'skipped', url: $json.url ?? null, reason: String(reason).slice(0, 300) } };
 """)
@@ -304,7 +311,9 @@ connections = {
     "Build Claude Request": {"main": main(["Claude: Write Script"])},
     "Claude: Write Script": {"main": main(["Parse Script"], ["Log Skipped"])},
     "Parse Script": {"main": main(["Script OK?"])},
-    "Script OK?": {"main": main(["VEED: Submit Video"], ["Log Skipped"])},
+    "Script OK?": {"main": main(["Use VEED Browser?"], ["Log Skipped"])},
+    "Use VEED Browser?": {"main": main(["VEED (Browser): Submit"], ["VEED: Submit Video"])},
+    "VEED (Browser): Submit": {"main": main(["Job Info"], ["Log Skipped"])},
     "VEED: Submit Video": {"main": main(["Job Info"], ["Log Skipped"])},
     "Job Info": {"main": main(["Wait 30s"])},
     "Wait 30s": {"main": main(["VEED: Check Status"])},

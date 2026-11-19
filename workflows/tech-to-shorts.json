@@ -285,13 +285,81 @@
       }
     },
     {
+      "id": "33429a7c-1006-55b1-bc72-7ddeb3e525d0",
+      "name": "Use VEED Browser?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2420,
+        100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e11bc09d-ca5f-5fba-a11f-d65ea2f0273c",
+              "leftValue": "={{ $env.VIDEO_ENGINE || 'fal' }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "browser"
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "7e774198-5645-50ed-a8aa-ba75e851605d",
+      "name": "VEED (Browser): Submit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.BROWSER_SERVICE_URL || 'http://host.docker.internal:8765') + '/veed/jobs' }}",
+        "options": {
+          "timeout": 60000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Token",
+              "value": "={{ $env.BROWSER_SERVICE_TOKEN }}"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ script: $json.script, title: $json.title }) }}"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
       "id": "57497ac3-3b60-5a35-98fd-74c4ca737831",
       "name": "VEED: Submit Video",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2420,
-        0
+        2640,
+        -100
       ],
       "parameters": {
         "method": "POST",
@@ -326,7 +394,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2640,
+        2860,
         0
       ],
       "parameters": {
@@ -340,7 +408,7 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        2860,
+        3080,
         0
       ],
       "parameters": {
@@ -354,7 +422,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3080,
+        3300,
         0
       ],
       "parameters": {
@@ -368,7 +436,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "=Key {{ $env.FAL_KEY }}"
+              "value": "={{ $json.status_url.includes('fal.run') ? 'Key ' + $env.FAL_KEY : '' }}"
             }
           ]
         }
@@ -382,7 +450,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3300,
+        3520,
         0
       ],
       "parameters": {
@@ -396,7 +464,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        3520,
+        3740,
         0
       ],
       "parameters": {
@@ -430,7 +498,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        3740,
+        3960,
         160
       ],
       "parameters": {
@@ -449,7 +517,7 @@
                 "type": "number",
                 "operation": "gte"
               },
-              "rightValue": 40
+              "rightValue": 60
             }
           ],
           "combinator": "and"
@@ -464,7 +532,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3740,
+        3960,
         -160
       ],
       "parameters": {
@@ -478,7 +546,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "=Key {{ $env.FAL_KEY }}"
+              "value": "={{ $json.response_url.includes('fal.run') ? 'Key ' + $env.FAL_KEY : '' }}"
             }
           ]
         }
@@ -491,7 +559,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3960,
+        4180,
         -160
       ],
       "parameters": {
@@ -506,7 +574,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        4180,
+        4400,
         -160
       ],
       "parameters": {
@@ -532,7 +600,7 @@
       "type": "n8n-nodes-base.youTube",
       "typeVersion": 1,
       "position": [
-        4400,
+        4620,
         -160
       ],
       "parameters": {
@@ -558,7 +626,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4620,
+        4840,
         -260
       ],
       "parameters": {
@@ -572,7 +640,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4620,
+        4840,
         300
       ],
       "parameters": {
@@ -746,7 +814,43 @@
       "main": [
         [
           {
+            "node": "Use VEED Browser?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Skipped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use VEED Browser?": {
+      "main": [
+        [
+          {
+            "node": "VEED (Browser): Submit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "VEED: Submit Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VEED (Browser): Submit": {
+      "main": [
+        [
+          {
+            "node": "Job Info",
             "type": "main",
             "index": 0
           }
